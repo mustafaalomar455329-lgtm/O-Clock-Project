@@ -15,6 +15,13 @@ bool	keys[256];			// Array Used For The Keyboard Routine
 bool	active = TRUE;		// Window Active Flag Set To TRUE By Default
 bool	fullscreen = FALSE;	// Fullscreen Flag Set To Fullscreen Mode By Default
 
+float camX = 0.0f;
+float camY = 0.0f;
+float camZ = 15.0f;   // <--- best viewing distance
+float camRotX = 0.0f;
+float camRotY = 0.0f;
+
+
 LRESULT	CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);	// Declaration For WndProc
 
 GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize The GL Window
@@ -33,7 +40,8 @@ GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize Th
 	gluPerspective(45.0f, (GLfloat)width / (GLfloat)height, 0.1f, 100.0f);
 
 	glMatrixMode(GL_MODELVIEW);							
-	glLoadIdentity();								
+	glLoadIdentity();	
+							
 }
 
 
@@ -50,57 +58,61 @@ int InitGL(GLvoid)
 
 	return TRUE;										
 }
-
 int DrawGLScene(GLvoid)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
+    // ====== 3D PROJECTION ======
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(-10, 10, -10, 10);   
+    gluPerspective(45.0f, 640.0f/480.0f, 0.1f, 100.0f);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
+    // ====== CAMERA ======
+    glRotatef(camRotX, 1, 0, 0);
+    glRotatef(camRotY, 0, 1, 0);
+    glTranslatef(-camX, -camY, -camZ);
+    // =====================
 
+
+    // ===== CLOCK BACK PLATE =====
     glColor3f(1,1,1);
     glBegin(GL_QUADS);
-        glVertex2f(-5, -5);
-        glVertex2f(5, -5);
-        glVertex2f( 5, 5);
-        glVertex2f(-5,   5);
+        glVertex3f(-5, -5, 0);
+        glVertex3f( 5, -5, 0);
+        glVertex3f( 5,  5, 0);
+        glVertex3f(-5,  5, 0);
     glEnd();
 
-    // خلفية الساعة – أزرق غامق
-  
+    // ===== CLOCK INNER BACKGROUND =====
     glColor3f(0.5f,0.5f,0.5f);
     glBegin(GL_QUADS);
-        glVertex2f(-3.8f, -3.8f);
-        glVertex2f( 3.8f, -3.8f);
-        glVertex2f( 3.8f,  3.8f);
-        glVertex2f(-3.8f,  3.8f);
+        glVertex3f(-3.8f, -3.8f, 0);
+        glVertex3f( 3.8f, -3.8f, 0);
+        glVertex3f( 3.8f,  3.8f, 0);
+        glVertex3f(-3.8f,  3.8f, 0);
     glEnd();
 
-
-// الحلقة الزخرفية الداخلية
-   
-    glColor3f(3,3,3);
+    // ===== DECORATION RING =====
+    glColor3f(1,1,1);
     glBegin(GL_LINE_LOOP);
-    for(int i=0;i<360;i++){
-        float a = i * 3.14159f/180.0f;
-        glVertex2f(cos(a)*3.3f, sin(a)*3.3f);
+    for(int i=0; i<360; i++)
+    {
+        float a = i * 3.14159f / 180.0f;
+        glVertex3f(cos(a)*3.3f, sin(a)*3.3f, 0);
     }
     glEnd();
 
-    // الأرقام (من 1 إلى 12)
-   
 
+    // ===== NUMBERS =====
     float R = 3.0f;
     glColor3f(1,1,1);
 
     for(int n=1; n<=12; n++)
     {
-
         float ang = (90 - n*30) * 3.14159f/180.0f;
         float x = cos(ang)*R;
         float y = sin(ang)*R;
@@ -109,21 +121,17 @@ int DrawGLScene(GLvoid)
         glTranslatef(x, y, 0);
         glScalef(0.25f, 0.25f, 1);
 
-        // رقم بسيط (3 خطوط)
         glBegin(GL_LINES);
-            glVertex2f(-0.2f,0); glVertex2f(0.3f,0);
-            glVertex2f(-0.2f,0.5f); glVertex2f(0.3f,0.5f);
-            glVertex2f(-0.2f,-0.5f); glVertex2f(0.3f,-0.5f);
+            glVertex3f(-0.2f, 0, 0);    glVertex3f(0.3f, 0, 0);
+            glVertex3f(-0.2f, 0.5f, 0); glVertex3f(0.3f, 0.5f, 0);
+            glVertex3f(-0.2f,-0.5f, 0); glVertex3f(0.3f,-0.5f, 0);
         glEnd();
 
         glPopMatrix();
     }
 
 
-
-    // عقارب الساعة – تعتمد على وقت النظام الحقيقي
-    
-
+    // ===== TIME =====
     SYSTEMTIME t;
     GetLocalTime(&t);
 
@@ -132,42 +140,41 @@ int DrawGLScene(GLvoid)
     float hourA = -((t.wHour%12)*30.0f + t.wMinute*0.5f);
 
 
-    // عقرب الثواني
+    // ===== SECOND HAND =====
     glPushMatrix();
-        glRotatef(secA,0,0,1);
+        glRotatef(secA, 0,0,1);
         glColor3f(1,0,0);
         glLineWidth(2);
         glBegin(GL_LINES);
-            glVertex2f(0,0);
-            glVertex2f(0,2.5f);
+            glVertex3f(0,0,0);
+            glVertex3f(0,2.5f,0);
         glEnd();
     glPopMatrix();
 
-    // عقرب الدقائق
+    // ===== MINUTE HAND =====
     glPushMatrix();
-        glRotatef(minA,0,0,1);
+        glRotatef(minA, 0,0,1);
         glColor3f(1,1,1);
         glLineWidth(4);
         glBegin(GL_LINES);
-            glVertex2f(0,0);
-            glVertex2f(0,2.0f);
+            glVertex3f(0,0,0);
+            glVertex3f(0,2.0f,0);
         glEnd();
     glPopMatrix();
 
-    // عقرب الساعات
+    // ===== HOUR HAND =====
     glPushMatrix();
-        glRotatef(hourA,0,0,1);
-        glColor3f(2,2,2);
+        glRotatef(hourA, 0,0,1);
+        glColor3f(1,1,1);
         glLineWidth(6);
         glBegin(GL_LINES);
-            glVertex2f(0,0);
-            glVertex2f(0,1.2f);
+            glVertex3f(0,0,0);
+            glVertex3f(0,1.2f,0);
         glEnd();
     glPopMatrix();
 
-    // النــــواس
 
-
+    // ===== PENDULUM =====
     static float T = 0;
     T += 0.05f;
     float swing = sin(T) * 25.0f;
@@ -176,29 +183,30 @@ int DrawGLScene(GLvoid)
         glTranslatef(0, -5.0f, 0);
         glRotatef(swing, 0,0,1);
 
-        // الخيط
+        // rope
         glColor3f(0.6f,0.4f,0.2f);
         glLineWidth(3);
         glBegin(GL_LINES);
-            glVertex2f(0,0);
-            glVertex2f(0,-3.0f);
+            glVertex3f(0,0,0);
+            glVertex3f(0,-3.0f,0);
         glEnd();
 
-        // الكرة
+        // ball
         glColor3f(0.8f,0.6f,0.1f);
         glBegin(GL_TRIANGLE_FAN);
-            glVertex2f(0,-3.0f);
-            for(int i=0;i<=360;i++){
+            glVertex3f(0,-3.0f,0);
+            for(int i=0; i<=360; i++)
+            {
                 float a = i * 3.14159f/180.0f;
-                glVertex2f(cos(a)*0.7f, -3.0f + sin(a)*0.7f);
+                glVertex3f(cos(a)*0.7f, -3.0f + sin(a)*0.7f, 0);
             }
         glEnd();
 
     glPopMatrix();
 
-
     return TRUE;
 }
+
 
 
 
@@ -520,6 +528,24 @@ int WINAPI WinMain(HINSTANCE	hInstance,			// Instance
 				}
 				else								// Not Time To Quit, Update Screen
 				{
+					 // ===== CAMERA MOVEMENT HERE =====
+
+					if (keys['W']) camZ -= 0.1f;
+					if (keys['S']) camZ += 0.1f;
+
+					if (keys['A']) camX -= 0.1f;
+					if (keys['D']) camX += 0.1f;
+
+					if (keys['Q']) camY -= 0.1f;
+					if (keys['E']) camY += 0.1f;
+
+					if (keys[VK_LEFT])  camRotY -= 1.0f;
+					if (keys[VK_RIGHT]) camRotY += 1.0f;
+					if (keys[VK_UP])    camRotX -= 1.0f;
+					if (keys[VK_DOWN])  camRotX += 1.0f;
+
+					// =================================
+
 					DrawGLScene();					// Draw The Scene
 					SwapBuffers(hDC);				// Swap Buffers (Double Buffering)
 				}
